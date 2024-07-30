@@ -6,8 +6,8 @@ const pcap = @cImport({
 const builtin = @import("builtin");
 const native_endian = builtin.target.cpu.arch.endian();
 const utils = @import("../utils.zig");
-const ipv4 = @import("../packet.zig");
-const tcp = @import("../tcp.zig");
+const ipv4 = @import("../packets/ipv4.zig");
+const tcp = @import("../packets/tcp.zig");
 
 const PcapWrapperError = error{
     UnintializedError,
@@ -50,29 +50,29 @@ pub const EthernetFrame = struct {
         std.debug.print("  destinationAddress: {s}\n", .{fmtDestinationAddress});
         std.debug.print("  etherType: {s}\n", .{etherTypeToString(self.header.etherType)});
     }
+
+    pub fn readFromBytes(allocator: std.mem.Allocator, bytes: []const u8, headerLength: usize, totalLength: usize) !EthernetFrame {
+        var frame: EthernetFrame = undefined;
+        var header: EthernetHeader = undefined;
+
+        // bits already in right order, so pass "big-endian" to do nothing
+        header.sourceAddress = std.mem.readInt(u48, bytes[0..6], .big);
+        header.destinationAddress = std.mem.readInt(u48, bytes[6..12], .big);
+
+        // only EthernetII Frames are supported
+        header.etherType = @enumFromInt(std.mem.readInt(u16, @ptrCast(bytes[12..headerLength]), .big));
+
+        frame.header = header;
+        frame.payload = bytes[headerLength..totalLength];
+
+        try frame.print(allocator);
+
+        const ip = ipv4.IPv4Packet.readFromBytes(frame.payload);
+        try ip.print(allocator);
+
+        const t = tcp.TcpPacket.readFromBytes(ip.payload, ip.header.totalLength - ip.header.headerLength);
+        t.print(allocator);
+
+        return frame;
+    }
 };
-
-pub fn readFromBytes(allocator: std.mem.Allocator, bytes: []const u8, headerLength: usize, totalLength: usize) !EthernetFrame {
-    var frame: EthernetFrame = undefined;
-    var header: EthernetHeader = undefined;
-
-    // bits already in right order, so pass "big-endian" to do nothing
-    header.sourceAddress = std.mem.readInt(u48, bytes[0..6], .big);
-    header.destinationAddress = std.mem.readInt(u48, bytes[6..12], .big);
-
-    // only EthernetII Frames are supported
-    header.etherType = @enumFromInt(std.mem.readInt(u16, @ptrCast(bytes[12..headerLength]), .big));
-
-    frame.header = header;
-    frame.payload = bytes[headerLength..totalLength];
-
-    try frame.print(allocator);
-
-    const ip = ipv4.readFromBytes(frame.payload);
-    try ip.print(allocator);
-
-    const t = tcp.readFromBytes(ip.payload, ip.header.totalLength - ip.header.headerLength);
-    t.print(allocator);
-
-    return frame;
-}

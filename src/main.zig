@@ -4,8 +4,8 @@ const device = @import("./device.zig");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-const ipv4_packet = @import("packet.zig");
-const ethernet_frame = @import("./frames/ethernet.zig");
+const ipv4_packet = @import("packets/ipv4.zig");
+const ethernet_frame = @import("frames/ethernet.zig");
 
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
@@ -105,7 +105,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     for (dual_data, 0..) |value, index| {
-        const frame = try ethernet_frame.readFromBytes(allocator, value, 14, lengths[index]);
+        const frame = try ethernet_frame.EthernetFrame.readFromBytes(allocator, value, 14, lengths[index]);
         _ = frame;
     }
 }

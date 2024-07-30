@@ -7,7 +7,7 @@ const cString = @cImport({
     @cInclude("string.h");
 });
 const wrapper = @import("pcap_wrapper.zig");
-const ipv4_packet = @import("packet.zig");
+const ipv4_packet = @import("packets/ipv4.zig");
 
 // TODO: Attach mesages fro errbuff to error messages
 // Currently, there is no way to attach mesages/values to errvalues like in rust

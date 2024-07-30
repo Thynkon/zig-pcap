@@ -57,6 +57,27 @@ pub const TcpPacket = struct {
         std.debug.print("  Checksum: 0x{x}\n", .{self.header.checksum});
         std.debug.print("  Urgent Pointer: {d}\n\n\n", .{self.header.urgentPointer});
     }
+
+    pub fn readFromBytes(bytes: []const u8, totalLength: usize) TcpPacket {
+        var packet: TcpPacket = undefined;
+        var header: TcpHeader = undefined;
+
+        // bits already in right order, so pass "big-endian" to do nothing
+        header.sourcePort = std.mem.readInt(u16, bytes[0..2], .big);
+        header.destinationPort = std.mem.readInt(u16, bytes[2..4], .big);
+        header.sequenceNumber = std.mem.readInt(u32, bytes[4..8], .big);
+        header.ackNumber = std.mem.readInt(u32, bytes[8..12], .big);
+        header.headerLength = @truncate(bytes[12]);
+        header.flags = tcpFlagsFromBytes(bytes[13]);
+        header.windowSize = std.mem.readInt(u16, bytes[14..16], .big);
+        header.checksum = std.mem.readInt(u16, bytes[16..18], .big);
+        header.urgentPointer = std.mem.readInt(u16, bytes[18..20], .big);
+
+        packet.header = header;
+        packet.payload = bytes[header.headerLength..totalLength];
+
+        return packet;
+    }
 };
 
 pub fn tcpFlagsFromBytes(byte: u8) TcpFlags {
@@ -70,25 +91,4 @@ pub fn tcpFlagsFromBytes(byte: u8) TcpFlags {
         .syn = (byte & 0x7) != 0,
         .fin = (byte & 0x8) != 0,
     };
-}
-
-pub fn readFromBytes(bytes: []const u8, totalLength: usize) TcpPacket {
-    var packet: TcpPacket = undefined;
-    var header: TcpHeader = undefined;
-
-    // bits already in right order, so pass "big-endian" to do nothing
-    header.sourcePort = std.mem.readInt(u16, bytes[0..2], .big);
-    header.destinationPort = std.mem.readInt(u16, bytes[2..4], .big);
-    header.sequenceNumber = std.mem.readInt(u32, bytes[4..8], .big);
-    header.ackNumber = std.mem.readInt(u32, bytes[8..12], .big);
-    header.headerLength = @truncate(bytes[12]);
-    header.flags = tcpFlagsFromBytes(bytes[13]);
-    header.windowSize = std.mem.readInt(u16, bytes[14..16], .big);
-    header.checksum = std.mem.readInt(u16, bytes[16..18], .big);
-    header.urgentPointer = std.mem.readInt(u16, bytes[18..20], .big);
-
-    packet.header = header;
-    packet.payload = bytes[header.headerLength..totalLength];
-
-    return packet;
 }

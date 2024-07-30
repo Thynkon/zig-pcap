@@ -4,7 +4,7 @@ const pcap = @cImport({
     @cInclude("pcap/pcap.h");
 });
 const builtin = @import("builtin");
-const utils = @import("utils.zig");
+const utils = @import("../utils.zig");
 const native_endian = builtin.target.cpu.arch.endian();
 
 const PcapWrapperError = error{
@@ -63,41 +63,41 @@ pub const IPv4Packet = struct {
         std.debug.print("  sourceAddress: {s}\n", .{fmtSourceAddress});
         std.debug.print("  destinationAddress: {s}\n", .{fmtDestinationAddress});
     }
-};
 
-pub fn readFromBytes(bytes: []const u8) IPv4Packet {
-    var packet: IPv4Packet = undefined;
-    var header: IPv4Header = undefined;
+    pub fn readFromBytes(bytes: []const u8) IPv4Packet {
+        var packet: IPv4Packet = undefined;
+        var header: IPv4Header = undefined;
 
-    if (native_endian == .little) {
-        header.version = @intCast(bytes[0] >> 4);
-        header.headerLength = @intCast(bytes[0] & 0xF);
-        header.headerLength *= 4;
-    } else {
-        header.version = @intCast(bytes[0] >> 4);
-        header.headerLength = @intCast(bytes[1] & 0xF);
-        header.headerLength *= 4;
+        if (native_endian == .little) {
+            header.version = @intCast(bytes[0] >> 4);
+            header.headerLength = @intCast(bytes[0] & 0xF);
+            header.headerLength *= 4;
+        } else {
+            header.version = @intCast(bytes[0] >> 4);
+            header.headerLength = @intCast(bytes[1] & 0xF);
+            header.headerLength *= 4;
+        }
+
+        header.dscp = @intCast(bytes[1] & 0x6);
+        header.ecn = @intCast(bytes[1] >> 6);
+        // bits already in right order, so pass "big-endian" to do nothing
+        header.totalLength = std.mem.readInt(u16, bytes[2..4], .big);
+        header.id = std.mem.readInt(u16, bytes[4..6], .big);
+        header.flags = @truncate(bytes[6]);
+        // header.fragmentation_offset = bytes[6..8] & 0xFFF4;
+        header.fragmentationOffset = @truncate(std.mem.readInt(u16, bytes[2..4], .big) & 0xFFF4);
+        // header.fragmentationOffset = 0;
+        header.ttl = bytes[8];
+        header.protocol = bytes[9];
+        header.checksum = std.mem.readInt(u16, bytes[10..12], .big);
+        header.sourceAddress = std.mem.readInt(u32, bytes[12..16], .big);
+        header.destinationAddress = std.mem.readInt(u32, bytes[16..20], .big);
+        // TODO: implement options
+        // header.options = bytes[20..header.total_length];
+
+        packet.header = header;
+        packet.payload = bytes[header.headerLength..header.totalLength];
+
+        return packet;
     }
-
-    header.dscp = @intCast(bytes[1] & 0x6);
-    header.ecn = @intCast(bytes[1] >> 6);
-    // bits already in right order, so pass "big-endian" to do nothing
-    header.totalLength = std.mem.readInt(u16, bytes[2..4], .big);
-    header.id = std.mem.readInt(u16, bytes[4..6], .big);
-    header.flags = @truncate(bytes[6]);
-    // header.fragmentation_offset = bytes[6..8] & 0xFFF4;
-    header.fragmentationOffset = @truncate(std.mem.readInt(u16, bytes[2..4], .big) & 0xFFF4);
-    // header.fragmentationOffset = 0;
-    header.ttl = bytes[8];
-    header.protocol = bytes[9];
-    header.checksum = std.mem.readInt(u16, bytes[10..12], .big);
-    header.sourceAddress = std.mem.readInt(u32, bytes[12..16], .big);
-    header.destinationAddress = std.mem.readInt(u32, bytes[16..20], .big);
-    // TODO: implement options
-    // header.options = bytes[20..header.total_length];
-
-    packet.header = header;
-    packet.payload = bytes[header.headerLength..header.totalLength];
-
-    return packet;
-}
+};
