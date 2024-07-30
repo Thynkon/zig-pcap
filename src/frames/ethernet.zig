@@ -71,7 +71,7 @@ pub const EthernetFrame = struct {
         try ip.print(allocator);
 
         const t = tcp.TcpPacket.readFromBytes(ip.payload, ip.header.total_length - ip.header.header_length);
-        t.print(allocator);
+        try t.print(allocator);
 
         return frame;
     }

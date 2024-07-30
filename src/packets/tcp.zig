@@ -12,18 +12,50 @@ const PcapWrapperError = error{
 };
 
 const TcpFlags = packed struct(u8) {
-    cwr: bool,
-    ece: bool,
-    urg: bool,
-    ack: bool,
-    psh: bool,
-    rst: bool,
-    syn: bool,
     fin: bool,
+    syn: bool,
+    rst: bool,
+    psh: bool,
+    ack: bool,
+    urg: bool,
+    ece: bool,
+    cwr: bool,
 
-    pub fn toString(self: TcpFlags) []const u8 {
-        _ = self;
-        return "";
+    pub fn toString(self: TcpFlags, allocator: std.mem.Allocator) ![]const u8 {
+        var result = std.ArrayList(u8).init(allocator);
+        defer {
+            if (result.capacity == 0) {
+                result.deinit();
+            }
+        }
+
+        const flag_strings = [_][]const u8{
+            "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR",
+        };
+
+        const flag_masks: [8]u8 = [_]u8{
+            0x01, // FIN
+            0x02, // SYN
+            0x04, // RST
+            0x08, // PSH
+            0x10, // ACK
+            0x20, // URG
+            0x40, // ECE
+            0x80, // CWR
+        };
+
+        const flags: u8 = @bitCast(self);
+        for (flag_strings, 0..) |flag, i| {
+            if ((flags & flag_masks[i]) != 0) {
+                if (result.items.len != 0) {
+                    try result.appendSlice(" ");
+                }
+
+                try result.appendSlice(flag);
+            }
+        }
+
+        return result.toOwnedSlice();
     }
 };
 
@@ -44,17 +76,33 @@ pub const TcpPacket = struct {
     header: TcpHeader,
     payload: []const u8,
 
-    pub fn print(self: TcpPacket, _: std.mem.Allocator) void {
+    pub fn print(self: TcpPacket, allocator: std.mem.Allocator) !void {
+        const flags = try self.header.flags.toString(allocator);
+        defer allocator.free(flags);
+
         std.debug.print("TCP Header:\n", .{});
         std.debug.print("  Source Port: {d}\n", .{self.header.source_port});
         std.debug.print("  Destination Port: {d}\n", .{self.header.destination_port});
         std.debug.print("  Sequence Number: {d}\n", .{self.header.sequence_number});
         std.debug.print("  Acknowledgment Number: {d}\n", .{self.header.ack_number});
         std.debug.print("  Header Length: {d}\n", .{self.header.header_length});
-        std.debug.print("  Flags: {s}\n", .{self.header.flags.toString()});
+        std.debug.print("  Flags: {s}\n", .{flags});
         std.debug.print("  Window Size: {d}\n", .{self.header.window_size});
         std.debug.print("  Checksum: 0x{x}\n", .{self.header.checksum});
         std.debug.print("  Urgent Pointer: {d}\n\n\n", .{self.header.urgent_pointer});
+    }
+
+    pub fn tcpFlagsFromBytes(byte: u8) TcpFlags {
+        return TcpFlags{
+            .fin = (byte & 0x1) != 0,
+            .syn = (byte & 0x2) != 0,
+            .rst = (byte & 0x4) != 0,
+            .psh = (byte & 0x8) != 0,
+            .ack = (byte & 0x10) != 0,
+            .urg = (byte & 0x20) != 0,
+            .ece = (byte & 0x40) != 0,
+            .cwr = (byte & 0x80) != 0,
+        };
     }
 
     pub fn readFromBytes(bytes: []const u8, total_length: usize) TcpPacket {
@@ -78,16 +126,3 @@ pub const TcpPacket = struct {
         return packet;
     }
 };
-
-pub fn tcpFlagsFromBytes(byte: u8) TcpFlags {
-    return TcpFlags{
-        .cwr = (byte & 0x1) != 0,
-        .ece = (byte & 0x2) != 0,
-        .urg = (byte & 0x3) != 0,
-        .ack = (byte & 0x4) != 0,
-        .psh = (byte & 0x5) != 0,
-        .rst = (byte & 0x6) != 0,
-        .syn = (byte & 0x7) != 0,
-        .fin = (byte & 0x8) != 0,
-    };
-}
