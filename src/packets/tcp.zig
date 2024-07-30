@@ -28,15 +28,15 @@ const TcpFlags = packed struct(u8) {
 };
 
 const TcpHeader = struct {
-    sourcePort: u16,
-    destinationPort: u16,
-    sequenceNumber: u32,
-    ackNumber: u32,
-    headerLength: u4,
+    source_port: u16,
+    destination_port: u16,
+    sequence_number: u32,
+    ack_number: u32,
+    header_length: u4,
     flags: TcpFlags,
-    windowSize: u16,
+    window_size: u16,
     checksum: u32,
-    urgentPointer: u32,
+    urgent_pointer: u32,
     // TODO: implement options
 };
 
@@ -44,37 +44,36 @@ pub const TcpPacket = struct {
     header: TcpHeader,
     payload: []const u8,
 
-    pub fn print(self: TcpPacket, allocator: std.mem.Allocator) void {
-        _ = allocator;
+    pub fn print(self: TcpPacket, _: std.mem.Allocator) void {
         std.debug.print("TCP Header:\n", .{});
-        std.debug.print("  Source Port: {d}\n", .{self.header.sourcePort});
-        std.debug.print("  Destination Port: {d}\n", .{self.header.destinationPort});
-        std.debug.print("  Sequence Number: {d}\n", .{self.header.sequenceNumber});
-        std.debug.print("  Acknowledgment Number: {d}\n", .{self.header.ackNumber});
-        std.debug.print("  Header Length: {d}\n", .{self.header.headerLength});
+        std.debug.print("  Source Port: {d}\n", .{self.header.source_port});
+        std.debug.print("  Destination Port: {d}\n", .{self.header.destination_port});
+        std.debug.print("  Sequence Number: {d}\n", .{self.header.sequence_number});
+        std.debug.print("  Acknowledgment Number: {d}\n", .{self.header.ack_number});
+        std.debug.print("  Header Length: {d}\n", .{self.header.header_length});
         std.debug.print("  Flags: {s}\n", .{self.header.flags.toString()});
-        std.debug.print("  Window Size: {d}\n", .{self.header.windowSize});
+        std.debug.print("  Window Size: {d}\n", .{self.header.window_size});
         std.debug.print("  Checksum: 0x{x}\n", .{self.header.checksum});
-        std.debug.print("  Urgent Pointer: {d}\n\n\n", .{self.header.urgentPointer});
+        std.debug.print("  Urgent Pointer: {d}\n\n\n", .{self.header.urgent_pointer});
     }
 
-    pub fn readFromBytes(bytes: []const u8, totalLength: usize) TcpPacket {
+    pub fn readFromBytes(bytes: []const u8, total_length: usize) TcpPacket {
         var packet: TcpPacket = undefined;
         var header: TcpHeader = undefined;
 
         // bits already in right order, so pass "big-endian" to do nothing
-        header.sourcePort = std.mem.readInt(u16, bytes[0..2], .big);
-        header.destinationPort = std.mem.readInt(u16, bytes[2..4], .big);
-        header.sequenceNumber = std.mem.readInt(u32, bytes[4..8], .big);
-        header.ackNumber = std.mem.readInt(u32, bytes[8..12], .big);
-        header.headerLength = @truncate(bytes[12]);
+        header.source_port = std.mem.readInt(u16, bytes[0..2], .big);
+        header.destination_port = std.mem.readInt(u16, bytes[2..4], .big);
+        header.sequence_number = std.mem.readInt(u32, bytes[4..8], .big);
+        header.ack_number = std.mem.readInt(u32, bytes[8..12], .big);
+        header.header_length = @truncate(bytes[12]);
         header.flags = tcpFlagsFromBytes(bytes[13]);
-        header.windowSize = std.mem.readInt(u16, bytes[14..16], .big);
+        header.window_size = std.mem.readInt(u16, bytes[14..16], .big);
         header.checksum = std.mem.readInt(u16, bytes[16..18], .big);
-        header.urgentPointer = std.mem.readInt(u16, bytes[18..20], .big);
+        header.urgent_pointer = std.mem.readInt(u16, bytes[18..20], .big);
 
         packet.header = header;
-        packet.payload = bytes[header.headerLength..totalLength];
+        packet.payload = bytes[header.header_length..total_length];
 
         return packet;
     }

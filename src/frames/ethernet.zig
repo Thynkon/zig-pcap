@@ -15,9 +15,9 @@ const PcapWrapperError = error{
 };
 
 const EthernetHeader = struct {
-    sourceAddress: u48,
-    destinationAddress: u48,
-    etherType: EtherType,
+    source_address: u48,
+    destination_address: u48,
+    ether_type: EtherType,
 };
 
 const EtherType = enum(u16) {
@@ -26,8 +26,8 @@ const EtherType = enum(u16) {
     ARP = 0x0806,
 };
 
-fn etherTypeToString(etherType: EtherType) []const u8 {
-    switch (etherType) {
+fn etherTypeToString(ether_type: EtherType) []const u8 {
+    switch (ether_type) {
         EtherType.IPv4 => return "IPv4",
         EtherType.IPv6 => return "IPv6",
         EtherType.ARP => return "ARP",
@@ -39,38 +39,38 @@ pub const EthernetFrame = struct {
     payload: []const u8,
 
     pub fn print(self: EthernetFrame, allocator: std.mem.Allocator) !void {
-        const fmtSourceAddress = try utils.macAddressToString(allocator, self.header.sourceAddress);
-        defer allocator.free(fmtSourceAddress);
+        const fmt_source_address = try utils.macAddressToString(allocator, self.header.source_address);
+        defer allocator.free(fmt_source_address);
 
-        const fmtDestinationAddress = try utils.macAddressToString(allocator, self.header.destinationAddress);
-        defer allocator.free(fmtDestinationAddress);
+        const fmt_destination_address = try utils.macAddressToString(allocator, self.header.destination_address);
+        defer allocator.free(fmt_destination_address);
 
         std.debug.print("EthernetII Header:\n", .{});
-        std.debug.print("  sourceAddress: {s}\n", .{fmtSourceAddress});
-        std.debug.print("  destinationAddress: {s}\n", .{fmtDestinationAddress});
-        std.debug.print("  etherType: {s}\n", .{etherTypeToString(self.header.etherType)});
+        std.debug.print("  source_address: {s}\n", .{fmt_source_address});
+        std.debug.print("  destination_address: {s}\n", .{fmt_destination_address});
+        std.debug.print("  ether_type: {s}\n", .{etherTypeToString(self.header.ether_type)});
     }
 
-    pub fn readFromBytes(allocator: std.mem.Allocator, bytes: []const u8, headerLength: usize, totalLength: usize) !EthernetFrame {
+    pub fn readFromBytes(allocator: std.mem.Allocator, bytes: []const u8, header_length: usize, total_length: usize) !EthernetFrame {
         var frame: EthernetFrame = undefined;
         var header: EthernetHeader = undefined;
 
         // bits already in right order, so pass "big-endian" to do nothing
-        header.sourceAddress = std.mem.readInt(u48, bytes[0..6], .big);
-        header.destinationAddress = std.mem.readInt(u48, bytes[6..12], .big);
+        header.source_address = std.mem.readInt(u48, bytes[0..6], .big);
+        header.destination_address = std.mem.readInt(u48, bytes[6..12], .big);
 
         // only EthernetII Frames are supported
-        header.etherType = @enumFromInt(std.mem.readInt(u16, @ptrCast(bytes[12..headerLength]), .big));
+        header.ether_type = @enumFromInt(std.mem.readInt(u16, @ptrCast(bytes[12..header_length]), .big));
 
         frame.header = header;
-        frame.payload = bytes[headerLength..totalLength];
+        frame.payload = bytes[header_length..total_length];
 
         try frame.print(allocator);
 
         const ip = ipv4.IPv4Packet.readFromBytes(frame.payload);
         try ip.print(allocator);
 
-        const t = tcp.TcpPacket.readFromBytes(ip.payload, ip.header.totalLength - ip.header.headerLength);
+        const t = tcp.TcpPacket.readFromBytes(ip.payload, ip.header.total_length - ip.header.header_length);
         t.print(allocator);
 
         return frame;
