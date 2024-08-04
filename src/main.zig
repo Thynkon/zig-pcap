@@ -99,9 +99,12 @@ pub fn main() !void {
     };
     const lengths = [2]u16{ 139, 839 };
 
-    defer if (gpa.deinit() == .leak) {
-        std.posix.exit(1);
-    };
+    defer {
+        if (gpa.deinit() == .leak) {
+            @panic("Memory leak!\n");
+        }
+    }
+
     const allocator = gpa.allocator();
 
     for (dual_data, 0..) |value, index| {
